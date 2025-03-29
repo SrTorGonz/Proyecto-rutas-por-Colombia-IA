@@ -1,0 +1,170 @@
+{
+  "capitales": [
+    "Leticia",
+    "Medellín",
+    "Arauca",
+    "Barranquilla",
+    "Cartagena de Indias",
+    "Tunja",
+    "Manizales",
+    "Florencia",
+    "Yopal",
+    "Popayán",
+    "Valledupar",
+    "Quibdó",
+    "Montería",
+    "Bogotá",
+    "Inírida",
+    "San José del Guaviare",
+    "Neiva",
+    "Riohacha",
+    "Santa Marta",
+    "Villavicencio",
+    "Pasto",
+    "San José de Cúcuta",
+    "Mocoa",
+    "Armenia",
+    "Pereira",
+    "San Andrés",
+    "Bucaramanga",
+    "Sincelejo",
+    "Ibagué",
+    "Cali",
+    "Mitú",
+    "Puerto Carreño"
+  ],
+  "conexiones": {
+    "Leticia": {},	
+    "Medellín": {
+      "Tunja": 425.0,
+      "Manizales": 223.0,
+      "Quibdó": 225.0,
+      "Montería": 469.0
+    },
+    "Arauca": {
+      "Yopal": 363.0,
+      "Bucaramanga": 441.0
+    },
+    "Barranquilla": {
+      "Cartagena de Indias": 134.0,
+      "Valledupar": 383.0
+    },
+    "Cartagena de Indias": {
+      "Barranquilla": 134.0,
+      "Bucaramanga": 623.0,
+      "Sincelejo": 174.0    
+    },
+    "Tunja": {
+      "Medellín": 425.0,
+      "Yopal": 217.0,
+      "Bogotá": 141.0,
+      "Bucaramanga": 282.0
+    },
+    "Manizales": {
+      "Medellín": 223.0,
+      "Bogotá": 294.0,
+      "Pereira": 53.3,
+      "Ibagué": 164.0
+    },
+    "Florencia": {
+      "Popayán": 268.0,
+      "Mocoa": 246.0
+    },
+    "Yopal": {
+      "Arauca": 363.0,
+      "Tunja": 217.0,
+      "Puerto Carreño": 973.0
+    },
+    "Popayán": {
+      "Florencia": 268.0,
+      "Neiva": 266.0,
+      "Pasto": 260.0,
+      "Cali": 139.0
+    },
+    "Valledupar": {
+      "Barranquilla": 383.0,
+      "Riohacha": 194.0,
+      "Santa Marta": 323.0,
+      "San José de Cúcuta": 556.0
+    },
+    "Quibdó": {
+      "Medellín": 225.0
+    },
+    "Montería": {
+      "Medellín": 469.0,
+      "Sincelejo": 116.0
+    },
+    "Bogotá": {
+      "Tunja": 141.0,
+      "Manizales": 294.0,
+      "Villavicencio": 122.0,
+      "Ibagué": 209.0
+    },
+    "Inírida": {},
+    "San José del Guaviare": {
+      "Villavicencio": 284.0
+    },
+    "Neiva": {
+      "Popayán": 266.0,
+      "Ibagué": 212.0
+    },
+    "Riohacha": {
+      "Valledupar": 194.0
+    },
+    "Santa Marta": {
+      "Valledupar": 323.0
+    },
+    "Villavicencio": {
+      "Bogotá": 122.0,
+      "San José del Guaviare": 284.0
+    },
+    "Pasto": {
+      "Popayán": 260.0,
+      "Mocoa": 146.0
+    },
+    "San José de Cúcuta": {
+      "Valledupar": 556.0,
+      "Bucaramanga": 194.0
+    },
+    "Mocoa": {
+      "Florencia": 246.0,
+      "Pasto": 146.0
+    },
+    "Armenia": {
+      "Pereira": 44.8,
+      "Ibagué": 73.2,
+      "Cali": 179.0
+    },
+    "Pereira": {
+      "Manizales": 53.3,
+      "Armenia": 44.8
+    },
+    "San Andrés": {},
+    "Bucaramanga": {
+      "Arauca": 441.0,
+      "Cartagena de Indias": 623.0,
+      "Tunja": 282.0,
+      "San José de Cúcuta": 194.0,
+      "Sincelejo": 498.0
+    },
+    "Sincelejo": {
+      "Cartagena de Indias": 174.0,
+      "Montería": 116.0,
+      "Bucaramanga": 498.0
+    },
+    "Ibagué": {
+      "Manizales": 164.0,
+      "Bogotá": 209.0,
+      "Neiva": 212.0,
+      "Armenia": 73.2
+    },
+    "Cali": {
+      "Popayán": 139.0,
+      "Armenia": 179.0
+    },
+    "Mitú": {},
+    "Puerto Carreño": {
+      "Yopal": 973.0
+    }
+  }
+}
