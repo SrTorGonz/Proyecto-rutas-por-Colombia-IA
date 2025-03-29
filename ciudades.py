@@ -152,7 +152,7 @@ class MapaColombiaConBusqueda:
         return math.sqrt((lat2-lat1)**2 + (lon2-lon1)**2) * 100  # Factor de escala
     
     def busqueda_voraz(self):
-        """Implementación de búsqueda voraz (primero el mejor)"""
+        """Implementación de búsqueda voraz (primero el mejor) con cálculo de distancia real"""
         inicio = self.ciudad_inicial.get()
         destino = self.ciudad_destino.get()
         
@@ -161,27 +161,30 @@ class MapaColombiaConBusqueda:
             return
         
         cola_prioridad = PriorityQueue()
-        cola_prioridad.put((0, inicio, [inicio]))
+        # Ahora almacenamos también la distancia acumulada (aunque no la usamos para la prioridad)
+        cola_prioridad.put((0, inicio, [inicio], 0))  # (heurística, ciudad, ruta, distancia_acumulada)
         visitados = set()
         
         while not cola_prioridad.empty():
-            _, ciudad_actual, ruta = cola_prioridad.get()
+            _, ciudad_actual, ruta, distancia_acum = cola_prioridad.get()
             
             if ciudad_actual == destino:
                 self.mostrar_ruta(ruta)
-                self.info_label.config(text=f"Ruta encontrada (Voraz):\n{' → '.join(ruta)}")
+                self.info_label.config(text=f"Ruta encontrada (Voraz):\n{' → '.join(ruta)}\nDistancia total: {distancia_acum:.1f} km")
                 return
             
             if ciudad_actual not in visitados:
                 visitados.add(ciudad_actual)
                 
                 if ciudad_actual in self.datos['conexiones']:
-                    for vecino in self.datos['conexiones'][ciudad_actual]:
+                    for vecino, distancia in self.datos['conexiones'][ciudad_actual].items():
                         if vecino not in visitados:
                             heuristica = self.distancia_heuristic(vecino, destino)
                             nueva_ruta = ruta.copy()
                             nueva_ruta.append(vecino)
-                            cola_prioridad.put((heuristica, vecino, nueva_ruta))
+                            nueva_distancia = distancia_acum + distancia
+                            # La prioridad sigue siendo solo la heurística (característica de búsqueda voraz)
+                            cola_prioridad.put((heuristica, vecino, nueva_ruta, nueva_distancia))
         
         self.info_label.config(text="No se encontró ruta")
     
