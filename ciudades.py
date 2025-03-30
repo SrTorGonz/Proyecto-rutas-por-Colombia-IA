@@ -3,6 +3,13 @@ from tkinter import ttk
 import json
 import math
 from queue import PriorityQueue
+import folium
+from folium.plugins import MousePosition
+from PIL import Image, ImageTk
+import os
+import time
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 
 # Coordenadas de las capitales
 coordenadas = {
@@ -40,6 +47,80 @@ coordenadas = {
     'Puerto Carreño': (6.1909225, -67.4841891)
 }
 
+class MapaInteractivo(tk.Frame):
+    def __init__(self, parent, *args, **kwargs):
+        tk.Frame.__init__(self, parent, *args, **kwargs)
+        
+        # Configurar Selenium
+        self.setup_selenium()
+        
+        # Crear contenedor para el mapa
+        self.browser_frame = ttk.Frame(self)
+        self.browser_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Mapa inicial
+        self.mapa = None
+        self.zoom_level = 6
+        self.map_center = [4.5709, -74.2973]
+        self.create_map()
+    
+    def setup_selenium(self):
+        """Configurar Selenium para capturar el mapa"""
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--window-size=700,700")
+        self.driver = webdriver.Chrome(options=chrome_options)
+    
+    def create_map(self):
+        """Crear un nuevo mapa con la configuración actual"""
+        self.mapa = folium.Map(
+            location=self.map_center,
+            zoom_start=self.zoom_level,
+            tiles='OpenStreetMap',
+            control_scale=True,
+            width='100%',
+            height='100%'
+        )
+        
+        # Añadir controles de posición del mouse
+        MousePosition().add_to(self.mapa)
+        self.update_map()
+    
+    def update_map(self):
+        """Actualizar la visualización del mapa"""
+        temp_html = os.path.abspath('temp_map.html')
+        self.mapa.save(temp_html)
+        
+        self.driver.get(f"file:///{temp_html}")
+        time.sleep(1.5)
+        
+        temp_png = os.path.abspath('temp_map.png')
+        self.driver.save_screenshot(temp_png)
+        
+        # Mostrar la imagen en el frame
+        for widget in self.browser_frame.winfo_children():
+            widget.destroy()
+        
+        img = Image.open(temp_png)
+        img = img.resize((700, 700), Image.LANCZOS)
+        img_tk = ImageTk.PhotoImage(img)
+        
+        label = tk.Label(self.browser_frame, image=img_tk)
+        label.image = img_tk
+        label.pack(fill=tk.BOTH, expand=True)
+        
+        try:
+            os.remove(temp_html)
+            os.remove(temp_png)
+        except:
+            pass
+    
+    def reset_view(self):
+        """Resetear la vista al zoom y posición inicial"""
+        self.zoom_level = 6
+        self.map_center = [4.5709, -74.2973]
+        self.create_map()
+
 class MapaColombiaConBusqueda:
     def __init__(self, root):
         self.root = root
@@ -50,29 +131,28 @@ class MapaColombiaConBusqueda:
         with open('conexiones.json', 'r', encoding='utf-8') as f:
             self.datos = json.load(f)
         
+        # Ordenar las ciudades alfabéticamente
+        self.ciudades_ordenadas = sorted(self.datos['capitales'])
+        
         # Frame principal
         self.main_frame = ttk.Frame(root)
         self.main_frame.pack(fill=tk.BOTH, expand=True)
         
-        # Frame para el mapa
-        self.map_frame = ttk.Frame(self.main_frame)
+        # Frame para el mapa interactivo
+        self.map_frame = MapaInteractivo(self.main_frame)
         self.map_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        
-        # Canvas para el mapa
-        self.canvas = tk.Canvas(self.map_frame, width=700, height=700, bg='white')
-        self.canvas.pack(pady=10)
         
         # Frame para controles (derecha)
         self.control_frame = ttk.Frame(self.main_frame, width=300)
         self.control_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=10)
         
-        # Selectores de ciudades
+        # Selectores de ciudades (ordenados alfabéticamente)
         ttk.Label(self.control_frame, text="Ciudad Inicial:", font=('Arial', 10, 'bold')).pack(pady=(20,5))
-        self.ciudad_inicial = ttk.Combobox(self.control_frame, values=self.datos['capitales'], state='readonly')
+        self.ciudad_inicial = ttk.Combobox(self.control_frame, values=self.ciudades_ordenadas, state='readonly')
         self.ciudad_inicial.pack(fill=tk.X, padx=10)
         
         ttk.Label(self.control_frame, text="Ciudad Destino:", font=('Arial', 10, 'bold')).pack(pady=(20,5))
-        self.ciudad_destino = ttk.Combobox(self.control_frame, values=self.datos['capitales'], state='readonly')
+        self.ciudad_destino = ttk.Combobox(self.control_frame, values=self.ciudades_ordenadas, state='readonly')
         self.ciudad_destino.pack(fill=tk.X, padx=10)
         
         # Botones de búsqueda
@@ -84,58 +164,63 @@ class MapaColombiaConBusqueda:
         self.info_label = ttk.Label(self.control_frame, text="Seleccione ciudades y algoritmo", wraplength=280)
         self.info_label.pack(pady=(30,10), fill=tk.X, padx=10)
         
-        # Variables para el zoom y desplazamiento
-        self.zoom = 1.3
-        self.offset_x = 0
-        self.offset_y = 50
+        # Variables para el seguimiento de elementos
+        self.ruta_actual = None
+        self.elementos_ruta = []
         
-        # Dibujar el mapa
-        self.dibujar_mapa()
-        
-        # Manejar eventos del ratón
-        self.canvas.bind("<ButtonPress-1>", self.start_drag)
-        self.canvas.bind("<B1-Motion>", self.drag)
-        
-    def convertir_coordenadas(self, lat, lon):
-        """Convertir coordenadas geográficas a coordenadas de pantalla"""
-        x = (lon + 78) * 15 * self.zoom + self.offset_x
-        y = (15 - lat) * 15 * self.zoom + self.offset_y
-        return x, y
+        # Mostrar el mapa inicial con conexiones
+        self.mostrar_mapa_inicial()
     
-    def dibujar_mapa(self):
-        """Dibujar el mapa con capitales y conexiones"""
-        self.canvas.delete("all")
+    def limpiar_ruta_actual(self):
+        """Elimina completamente la ruta actual del mapa"""
+        for elemento in self.elementos_ruta:
+            if elemento in self.map_frame.mapa._children:
+                del self.map_frame.mapa._children[elemento]
+        self.elementos_ruta = []
+        self.ruta_actual = None
+    
+    def mostrar_mapa_inicial(self):
+        """Muestra el mapa completo con todas las conexiones base"""
+        self.limpiar_ruta_actual()
         
-        # Dibujar conexiones
+        # Limpiar elementos existentes
+        for item in list(self.map_frame.mapa._children.keys()):
+            if item.startswith('poly_line') or item.startswith('circle_marker'):
+                del self.map_frame.mapa._children[item]
+        
+        # Restablecer vista
+        self.map_frame.reset_view()
+        
+        # Añadir conexiones base (color gris medio, grosor fino)
         for ciudad, conexiones in self.datos['conexiones'].items():
             if ciudad in coordenadas:
-                x1, y1 = self.convertir_coordenadas(*coordenadas[ciudad])
-                for destino in conexiones:
+                for destino, distancia in conexiones.items():
                     if destino in coordenadas:
-                        x2, y2 = self.convertir_coordenadas(*coordenadas[destino])
-                        self.canvas.create_line(x1, y1, x2, y2, fill="#aaa", width=1)
+                        folium.PolyLine(
+                            locations=[coordenadas[ciudad], coordenadas[destino]],
+                            color='#997a16', 
+                            weight=3,        # Grosor fino
+                            opacity=0.8,
+                            tooltip=f"{ciudad} - {destino}: {distancia} km"
+                        ).add_to(self.map_frame.mapa)
         
-        # Dibujar puntos de las capitales
-        self.ciudad_tags = {}
+        # Añadir marcadores base (rojos)
         for ciudad, (lat, lon) in coordenadas.items():
-            x, y = self.convertir_coordenadas(lat, lon)
-            punto = self.canvas.create_oval(x-5, y-5, x+5, y+5, fill="#e74c3c", outline="#c0392b", width=1)
-            self.ciudad_tags[punto] = ciudad
-            self.canvas.tag_bind(punto, "<Enter>", lambda e, c=ciudad: self.mostrar_info_ciudad(c))
-            self.canvas.tag_bind(punto, "<Leave>", lambda e: self.ocultar_info_ciudad())
-    
-    def mostrar_info_ciudad(self, ciudad):
-        """Mostrar información de la ciudad al pasar el ratón"""
-        info = f"{ciudad}"
-        self.tooltip = tk.Toplevel(self.root)
-        self.tooltip.wm_overrideredirect(True)
-        self.tooltip.wm_geometry(f"+{self.root.winfo_pointerx()+15}+{self.root.winfo_pointery()+15}")
-        tk.Label(self.tooltip, text=info, bg="#ffffe0", relief="solid", borderwidth=1).pack()
-    
-    def ocultar_info_ciudad(self):
-        """Ocultar el tooltip de información"""
-        if hasattr(self, 'tooltip'):
-            self.tooltip.destroy()
+            folium.CircleMarker(
+                location=[lat, lon],
+                radius=5,
+                popup=ciudad,
+                color='red',
+                fill=True,
+                fill_color='red',
+                fill_opacity=1
+            ).add_to(self.map_frame.mapa)
+        
+        # Ajustar vista para mostrar todo Colombia
+        lats = [coord[0] for coord in coordenadas.values()]
+        lons = [coord[1] for coord in coordenadas.values()]
+        self.map_frame.mapa.fit_bounds([(min(lats)-1, min(lons)-1), (max(lats)+1, max(lons)+1)])
+        self.map_frame.update_map()
     
     def distancia_entre_ciudades(self, ciudad1, ciudad2):
         """Calcular distancia entre dos ciudades (si están conectadas)"""
@@ -152,7 +237,7 @@ class MapaColombiaConBusqueda:
         return math.sqrt((lat2-lat1)**2 + (lon2-lon1)**2) * 100  # Factor de escala
     
     def busqueda_voraz(self):
-        """Implementación de búsqueda voraz (primero el mejor) con cálculo de distancia real"""
+        """Implementación de búsqueda voraz (primero el mejor)"""
         inicio = self.ciudad_inicial.get()
         destino = self.ciudad_destino.get()
         
@@ -161,7 +246,6 @@ class MapaColombiaConBusqueda:
             return
         
         cola_prioridad = PriorityQueue()
-        # Ahora almacenamos también la distancia acumulada (aunque no la usamos para la prioridad)
         cola_prioridad.put((0, inicio, [inicio], 0))  # (heurística, ciudad, ruta, distancia_acumulada)
         visitados = set()
         
@@ -169,6 +253,7 @@ class MapaColombiaConBusqueda:
             _, ciudad_actual, ruta, distancia_acum = cola_prioridad.get()
             
             if ciudad_actual == destino:
+                self.ruta_actual = ruta
                 self.mostrar_ruta(ruta)
                 self.info_label.config(text=f"Ruta encontrada (Voraz):\n{' → '.join(ruta)}\nDistancia total: {distancia_acum:.1f} km")
                 return
@@ -183,7 +268,6 @@ class MapaColombiaConBusqueda:
                             nueva_ruta = ruta.copy()
                             nueva_ruta.append(vecino)
                             nueva_distancia = distancia_acum + distancia
-                            # La prioridad sigue siendo solo la heurística (característica de búsqueda voraz)
                             cola_prioridad.put((heuristica, vecino, nueva_ruta, nueva_distancia))
         
         self.info_label.config(text="No se encontró ruta")
@@ -205,6 +289,7 @@ class MapaColombiaConBusqueda:
             _, ciudad_actual, ruta, costo_real = cola_prioridad.get()
             
             if ciudad_actual == destino:
+                self.ruta_actual = ruta
                 self.mostrar_ruta(ruta)
                 self.info_label.config(text=f"Ruta encontrada (A*):\n{' → '.join(ruta)}\nDistancia total: {costo_real:.1f} km")
                 return
@@ -225,42 +310,52 @@ class MapaColombiaConBusqueda:
         self.info_label.config(text="No se encontró ruta")
     
     def mostrar_ruta(self, ruta):
-        """Resaltar la ruta encontrada en el mapa"""
-        self.limpiar_ruta()
+        """Muestra una ruta específica en el mapa"""
+        if not ruta or len(ruta) < 2:
+            return
         
-        for i in range(len(ruta)-1):
-            ciudad1 = ruta[i]
-            ciudad2 = ruta[i+1]
+        # Limpiar ruta anterior completamente
+        self.limpiar_ruta_actual()
+        
+        puntos_ruta = [coordenadas[ciudad] for ciudad in ruta if ciudad in coordenadas]
+        if len(puntos_ruta) > 1:
+            # Línea de ruta (azul oscuro, más gruesa)
+            ruta_line = folium.PolyLine(
+                locations=[[lat, lon] for lat, lon in puntos_ruta],
+                color='#121966',  # Azul más oscuro
+                weight=4,         # Grosor aumentado
+                opacity=0.9,
+                tooltip="Ruta encontrada"
+            )
+            ruta_line.add_to(self.map_frame.mapa)
+            self.elementos_ruta.append(ruta_line.get_name())
             
-            if ciudad1 in coordenadas and ciudad2 in coordenadas:
-                x1, y1 = self.convertir_coordenadas(*coordenadas[ciudad1])
-                x2, y2 = self.convertir_coordenadas(*coordenadas[ciudad2])
-                
-                # Dibujar línea de conexión resaltada
-                self.canvas.create_line(x1, y1, x2, y2, fill="#3498db", width=3)
-                
-                # Resaltar ciudades de la ruta
-                self.canvas.create_oval(x1-7, y1-7, x1+7, y1+7, fill="#2ecc71", outline="#27ae60", width=2)
-                self.canvas.create_oval(x2-7, y2-7, x2+7, y2+7, fill="#2ecc71", outline="#27ae60", width=2)
+            # Marcadores verdes para ciudades en la ruta
+            for ciudad in ruta:
+                if ciudad in coordenadas:
+                    lat, lon = coordenadas[ciudad]
+                    marker = folium.CircleMarker(
+                        location=[lat, lon],
+                        radius=6,
+                        popup=ciudad,
+                        color='green',
+                        fill=True,
+                        fill_color='green',
+                        fill_opacity=0.9
+                    )
+                    marker.add_to(self.map_frame.mapa)
+                    self.elementos_ruta.append(marker.get_name())
+        
+        # Ajustar vista para mostrar la ruta
+        lats = [coord[0] for coord in puntos_ruta]
+        lons = [coord[1] for coord in puntos_ruta]
+        self.map_frame.mapa.fit_bounds([(min(lats)-0.5, min(lons)-0.5), (max(lats)+0.5, max(lons)+0.5)])
+        self.map_frame.update_map()
     
     def limpiar_ruta(self):
-        """Limpiar la ruta resaltada"""
-        self.dibujar_mapa()
-    
-    def start_drag(self, event):
-        """Iniciar arrastre del mapa"""
-        self.last_x = event.x
-        self.last_y = event.y
-    
-    def drag(self, event):
-        """Arrastrar el mapa"""
-        dx = event.x - self.last_x
-        dy = event.y - self.last_y
-        self.offset_x += dx
-        self.offset_y += dy
-        self.last_x = event.x
-        self.last_y = event.y
-        self.dibujar_mapa()
+        """Vuelve a mostrar el mapa completo con todas las conexiones"""
+        self.mostrar_mapa_inicial()
+        self.info_label.config(text="Ruta limpiada - Vista completa de Colombia")
 
 if __name__ == "__main__":
     root = tk.Tk()
